@@ -92,14 +92,12 @@
 // q-Dipper up start
 // r-Dipper down start
 // s-resend last command
-// t-puff system on
-// u-puff system off
+// t-puff system on         AIR PUFF ON
+// u-puff system off        AIR PUFF OFF
 // x-KEEP ALIVE             sent to Android, if no response, allow manual dipper PB operation
 // y-Dipper fault
 // z-noop return
-
 // ----------------------------------------------------------------------------------------------------
-
 //PIN	I/O/A	DESCRIPTION
 //-----------------------------------------------------
 //D2	INPUT	LEFT LIMIT SWITCH
@@ -108,11 +106,10 @@
 //D8  OUTPUT SPEAKER
 //D9  OUTPUT PWM - SERVO SIGNAL
 //D11	OUTPUT	RUN LIGHT
-//D12 OUTPUT AIR PUFF controlPin
+//D12 OUTPUT AIR PUFF controlPin        AIR PUFF CONTROL PIN D12
 //D13	OUTPUT 	FEED LIGHT
 
-
-/*
+/**************************************************************************
   POLOLU specifics - hard wired to eighth step for this app
   for a 200 step/rev stepper motor
   ---------------------------------------------------
@@ -124,8 +121,7 @@
   High	High	Low	Eighth step          8*200 = 1600
   High	High	High	Sixteenth step      16*200 = 3200
 
-
-************************************************************************* */
+*************************************************************************** */
 
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
@@ -145,16 +141,11 @@
 #define dipperupLS     15
 #define leftLS         16
 #define dipperPB       17
-
-
-
-
 #define speaker        18
 
-#define BLUE           15   // 0-255
+#define BLUE           15    // 0-255
 #define RED            200   // 0-255
-#define GREEN           5   // 0-255
-
+#define GREEN           5    // 0-255
 
 // DEBUG
 boolean DEBUG         = false ;
@@ -171,33 +162,32 @@ int steps_total   = step_size * steps_per_rev;  // total steps at resolution of 
 int delay_time    = 100 ; // 70 time to delay between step waveform pulses - greater the microstep, less time needed
 
 // state variables
-int leftLSval        = 0;  // Left ls state
-int rightLSval       = 0;  // Right ls state
-int feedDetectval    = 0;  // feed detect state
+int leftLSval        = 0;         // Left ls state
+int rightLSval       = 0;         // Right ls state
+int feedDetectval    = 0;         // feed detect state
 
-int feedLight_Grnval = 0;  // feed light state
-int feedLight_Ylwval = 0;  // feed light state
-int DipperUP         = 0;  // dipper up FLAG
-int DipperDN         = 0 ; // dipper down FLAG
-int DipperPBval      = 0 ; // dipper pushbutton
-int DipperupLSval    = 0 ; // dipper LS state
-int Speakerval       = 0 ; // speaker state
-
-byte upOffset ;             // EEPROM offset for dipper
-byte downOffset;            // EEPROM offset for dipper
-long previousMillis  = 0;  // will store last time run LED was updated
-long interval        = 1000; // interval at which to blink (milliseconds)
-int divisor          = 1;    // used to control blink rate of LED
-long lastDebounceTime  = 0;  // the last time the input check was made
-long debounceDelay     = 25; // the debounce time 50ms=.0050sec
-long accumulatedTravelTime = 0;  // variable to time stepper motion
-unsigned long currentMillis = millis();
-
+// miscellaneous variables
+int feedLight_Grnval = 0;         // feed light state
+int feedLight_Ylwval = 0;         // feed light state
+int DipperUP         = 0;         // dipper up FLAG
+int DipperDN         = 0 ;        // dipper down FLAG
+int DipperPBval      = 0 ;        // dipper pushbutton
+int DipperupLSval    = 0 ;        // dipper LS state
+int Speakerval       = 0 ;        // speaker state
+byte upOffset ;                   // EEPROM offset for dipper
+byte downOffset;                  // EEPROM offset for dipper
+long previousMillis  = 0;         // will store last time run LED was updated
+long interval        = 1000;      // interval at which to blink (milliseconds)
+int divisor          = 1;         // used to control blink rate of LED
+long lastDebounceTime  = 0;       // the last time the input check was made
+long debounceDelay     = 25;      // the debounce time 50ms=.0050sec
+long accumulatedTravelTime  = 0;  // variable to time stepper motion
+unsigned long currentMillis = millis(); // variable to store current time 
 
 #if defined(TESTERMODE)
-long maxTravelTime    = 15000 ;// 15 sec maximum stepper up travel time
+long maxTravelTime    = 15000 ;   // 15 sec maximum stepper up travel time
 #else
-long maxTravelTime    = 5000  ; // 5 sec maximum stepper up travel time
+long maxTravelTime    = 5000  ;    // 5 sec maximum stepper up travel time
 #endif
 
 // Manual mode
@@ -215,13 +205,12 @@ int     badCharCounter      = 0 ; // bluetooth bad char counter
 boolean badCharFlag         = false ;
 unsigned long badCharTimer  = millis();
 long badCharTimerLimit      = 500  ;
+
 /* **************************************************************************** */
 //  SETUP()
-
 void setup()
 {
-
-  /// stepper
+  // stepper
   pinMode(DIR_PIN,  OUTPUT);
   pinMode(STEP_PIN, OUTPUT);
 
@@ -231,7 +220,6 @@ void setup()
   pinMode(leftLS,     INPUT_PULLUP); // since PULLUP, LOW is ON
   pinMode(rightLS,    INPUT_PULLUP); // since PULLUP, LOW is ON
   pinMode(feedDetect, INPUT_PULLUP); //open collector transistor output - need a pull up resistor, LOW is ON
-
   pinMode(speaker,       OUTPUT);
   pinMode(chamberlt,     OUTPUT);
   pinMode(feedLight_Grn, OUTPUT);
@@ -241,7 +229,6 @@ void setup()
 
   // Set Initial Values
   //analogWrite(feedLight_Red, feedLight_Redval);
-
   digitalWrite(chamberlt, HIGH);
   analogWrite(feedLight_Grn, 0);
   analogWrite(feedLight_Ylw, 0);
@@ -260,6 +247,7 @@ void setup()
   bluetooth.begin(9600);  // Start bluetooth serial at 9600
   Serial.begin(9600);     // Start serial port at 9600
   Serial.print(F("\n\n  AcuiSee-vM Version: "));  Serial.println(Version);
+  Serial.print(F("\n\n  AIR PUFF CONTROL on D12"));
   Serial.println(F("-------------------------------"));
 
 #if defined(TESTERMODE)
@@ -268,7 +256,6 @@ void setup()
   Serial.println(F("TESTERMODE NOT DEFINED"));
 #endif
   Serial.print(F("maxTravelTime = ")); Serial.println(maxTravelTime);
-
 
   upOffset = EEPROM[0];
   if (upOffset == 255 ) {
@@ -333,7 +320,11 @@ void STAT() {
     bluetooth.print("p"); // not used on bluetooth tablet
   } // else
 
-  digitalWrite(puffPin, LOW); Serial.write("u");  bluetooth.print("u");
+  if (digitalRead(puffPin) == LOW){
+   Serial.write("u");  bluetooth.print("u");
+  } else {
+   Serial.write("t");  bluetooth.print("t");  
+  }
   Serial.write("\n"); bluetooth.print("\n");
 } // STAT
 
